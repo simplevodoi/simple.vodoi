@@ -1,114 +1,42 @@
-Liner
-=====
+# Rabit: Reliable Allreduce and Broadcast Interface
+[![Build Status](https://travis-ci.org/dmlc/rabit.svg?branch=master)](https://travis-ci.org/dmlc/rabit)
+[![Documentation Status](https://readthedocs.org/projects/rabit/badge/?version=latest)](http://rabit.readthedocs.org/)
 
-Liner is a command line editor with history. It was inspired by linenoise;
-everything Unix-like is a VT100 (or is trying very hard to be). If your
-terminal is not pretending to be a VT100, change it. Liner also support
-Windows.
+## Recent developments of Rabit have been moved into [dmlc/xgboost](https://github.com/dmlc/xgboost). See discussion in [dmlc/xgboost#5995](https://github.com/dmlc/xgboost/issues/5995).
 
-Liner is intended for use by cross-platform applications. Therefore, the
-decision was made to write it in pure Go, avoiding cgo, for ease of cross
-compilation. Furthermore, features only supported on some platforms have
-been intentionally omitted. For example, Ctrl-Z is "suspend" on Unix, but
-"EOF" on Windows. In the interest of making an application behave the same
-way on every supported platform, Ctrl-Z is ignored by Liner.
+rabit is a light weight library that provides a fault tolerant interface of Allreduce and Broadcast. It is designed to support easy implementations of distributed machine learning programs, many of which fall naturally under the Allreduce abstraction. The goal of rabit is to support ***portable*** , ***scalable*** and ***reliable*** distributed machine learning programs.
 
-Liner is released under the X11 license (which is similar to the new BSD
-license).
+* [Tutorial](guide)
+* [API Documentation](http://homes.cs.washington.edu/~tqchen/rabit/doc)
+* You can also directly read the [interface header](include/rabit.h)
+* [XGBoost](https://github.com/dmlc/xgboost)
+  - Rabit is one of the backbone library to support distributed XGBoost
 
-Line Editing
-------------
+## Features
+All these features comes from the facts about small rabbit:)
+* Portable: rabit is light weight and runs everywhere
+  - Rabit is a library instead of a framework, a program only needs to link the library to run
+  - Rabit only replies on a mechanism to start program, which was provided by most framework
+  - You can run rabit programs on many platforms, including Yarn(Hadoop), MPI using the same code
+* Scalable and Flexible: rabit runs fast
+  * Rabit program use Allreduce to communicate, and do not suffer the cost between iterations of MapReduce abstraction.
+  - Programs can call rabit functions in any order, as opposed to frameworks where callbacks are offered and called by the framework, i.e. inversion of control principle.
+  - Programs persist over all the iterations, unless they fail and recover.
+* Reliable: rabit dig burrows to avoid disasters
+  - Rabit programs can recover the model and results using synchronous function calls.
+  - Rabit programs can set rabit_boostrap_cache=1 to support allreduce/broadcast operations before loadcheckpoint
+  `
+    rabit::Init(); -> rabit::AllReduce(); -> rabit::loadCheckpoint(); -> for () { rabit::AllReduce(); rabit::Checkpoint();} -> rabit::Shutdown();
+  `
 
-The following line editing commands are supported on platforms and terminals
-that Liner supports:
+## Use Rabit
+* Type make in the root folder will compile the rabit library in lib folder
+* Add lib to the library path and include to the include path of compiler
+* Languages: You can use rabit in C++ and python
+  - It is also possible to port the library to other languages
 
-Keystroke    | Action
----------    | ------
-Ctrl-A, Home | Move cursor to beginning of line
-Ctrl-E, End  | Move cursor to end of line
-Ctrl-B, Left | Move cursor one character left
-Ctrl-F, Right| Move cursor one character right
-Ctrl-Left, Alt-B    | Move cursor to previous word
-Ctrl-Right, Alt-F   | Move cursor to next word
-Ctrl-D, Del  | (if line is *not* empty) Delete character under cursor
-Ctrl-D       | (if line *is* empty) End of File - usually quits application
-Ctrl-C       | Reset input (create new empty prompt)
-Ctrl-L       | Clear screen (line is unmodified)
-Ctrl-T       | Transpose previous character with current character
-Ctrl-H, BackSpace | Delete character before cursor
-Ctrl-W, Alt-BackSpace | Delete word leading up to cursor
-Alt-D        | Delete word following cursor
-Ctrl-K       | Delete from cursor to end of line
-Ctrl-U       | Delete from start of line to cursor
-Ctrl-P, Up   | Previous match from history
-Ctrl-N, Down | Next match from history
-Ctrl-R       | Reverse Search history (Ctrl-S forward, Ctrl-G cancel)
-Ctrl-Y       | Paste from Yank buffer (Alt-Y to paste next yank instead)
-Tab          | Next completion
-Shift-Tab    | (after Tab) Previous completion
-
-Note that "Previous" and "Next match from history" will retain the part of
-the line that the user has already typed, similar to zsh's
-"up-line-or-beginning-search" (which is the default on some systems) or
-bash's "history-search-backward" (which is my preferred behaviour, but does
-not appear to be the default `Up` keybinding on any system).
-
-Getting started
------------------
-
-```go
-package main
-
-import (
-	"log"
-	"os"
-	"path/filepath"
-	"strings"
-
-	"github.com/peterh/liner"
-)
-
-var (
-	history_fn = filepath.Join(os.TempDir(), ".liner_example_history")
-	names      = []string{"john", "james", "mary", "nancy"}
-)
-
-func main() {
-	line := liner.NewLiner()
-	defer line.Close()
-
-	line.SetCtrlCAborts(true)
-
-	line.SetCompleter(func(line string) (c []string) {
-		for _, n := range names {
-			if strings.HasPrefix(n, strings.ToLower(line)) {
-				c = append(c, n)
-			}
-		}
-		return
-	})
-
-	if f, err := os.Open(history_fn); err == nil {
-		line.ReadHistory(f)
-		f.Close()
-	}
-
-	if name, err := line.Prompt("What is your name? "); err == nil {
-		log.Print("Got: ", name)
-		line.AppendHistory(name)
-	} else if err == liner.ErrPromptAborted {
-		log.Print("Aborted")
-	} else {
-		log.Print("Error reading line: ", err)
-	}
-
-	if f, err := os.Create(history_fn); err != nil {
-		log.Print("Error writing history file: ", err)
-	} else {
-		line.WriteHistory(f)
-		f.Close()
-	}
-}
-```
-
-For documentation, see http://godoc.org/github.com/peterh/liner
+## Contributing
+Rabit is an open-source library, contributions are welcomed, including:
+* The rabit core library.
+* Customized tracker script for new platforms and interface of new languages.
+* Tutorial and examples about the library.
